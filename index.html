@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Music Party A–Z</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <main class="game">
+    <header>
+      <div class="eyebrow">THE ARTIST NAME GAME</div>
+      <h1>Music Party <span>A–Z</span></h1>
+    </header>
+
+    <section id="start-screen">
+      <p class="intro">
+        Name an artist. Use the last letter to name the next one.
+        No repeats.
+      </p>
+
+      <button id="start-button">START GAME</button>
+    </section>
+
+    <section id="game-screen" class="hidden">
+
+      <div class="computer-turn">
+        <div class="label">COMPUTER</div>
+        <div id="computer-artist" class="artist-name"></div>
+      </div>
+
+      <div class="letter-box">
+        <div class="label">YOUR LETTER</div>
+        <div id="required-letter" class="required-letter"></div>
+      </div>
+
+      <form id="artist-form">
+        <input
+          id="artist-input"
+          type="text"
+          autocomplete="off"
+          placeholder="Name an artist..."
+        >
+        <button type="submit">PLAY</button>
+      </form>
+
+      <div id="message" class="message"></div>
+
+      <div class="used-section">
+        <div class="label">USED ARTISTS</div>
+        <div id="used-artists" class="used-artists"></div>
+      </div>
+
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
