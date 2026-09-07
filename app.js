@@ -60,6 +60,9 @@ const artistForm = document.getElementById("artist-form");
 const artistInput = document.getElementById("artist-input");
 const messageEl = document.getElementById("message");
 const usedArtistsEl = document.getElementById("used-artists");
+const newGameButton = document.getElementById("new-game-button");
+const stuckButton = document.getElementById("stuck-button");
+const letterBox = document.querySelector(".letter-box");
 
 let usedArtists = [];
 let requiredLetter = "";
@@ -141,12 +144,9 @@ function computerTurn(letter = null) {
   }
 
   if (choices.length === 0) {
-    computerArtistEl.textContent = "I'm stuck!";
-    requiredLetterEl.textContent = "—";
-    messageEl.textContent = "You win.";
-    artistInput.disabled = true;
-    return;
-  }
+  endGame("player");
+  return;
+}
 
   const artist =
     choices[Math.floor(Math.random() * choices.length)];
@@ -173,15 +173,48 @@ if (escapeLetter) {
   artistInput.value = "";
   artistInput.focus();
 }
+function endGame(winner) {
+  artistInput.disabled = true;
+  artistForm.classList.add("hidden");
+  letterBox.classList.add("hidden");
+
+  sEscapeEl.textContent = "";
+  sEscapeEl.classList.add("hidden");
+
+  const artistCount = usedArtists.length;
+
+  if (winner === "computer") {
+    computerArtistEl.textContent = "COMPUTER WINS";
+    messageEl.textContent =
+      `You're stuck. ${artistCount} artists played.`;
+  } else {
+    computerArtistEl.textContent = "YOU WIN";
+    messageEl.textContent =
+      `The computer is stuck. ${artistCount} artists played.`;
+  }
+
+  stuckButton.classList.add("hidden");
+}
 
 function startGame() {
   usedArtists = [];
   requiredLetter = "";
+  escapeLetter = null;
+
+  artistInput.disabled = false;
+  artistInput.value = "";
+  artistForm.classList.remove("hidden");
+  letterBox.classList.remove("hidden");
+  stuckButton.classList.remove("hidden");
+
+  usedArtistsEl.innerHTML = "";
+  messageEl.textContent = "";
+
+  sEscapeEl.textContent = "";
+  sEscapeEl.classList.add("hidden");
 
   startScreen.classList.add("hidden");
   gameScreen.classList.remove("hidden");
-
-  messageEl.textContent = "";
 
   computerTurn();
 }
@@ -244,3 +277,7 @@ computerTurn(nextLetters.normal);
 
 startButton.addEventListener("click", startGame);
 artistForm.addEventListener("submit", handlePlayerTurn);
+newGameButton.addEventListener("click", startGame);
+stuckButton.addEventListener("click", () => {
+  endGame("computer");
+});
