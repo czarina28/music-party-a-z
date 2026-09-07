@@ -55,6 +55,7 @@ const gameScreen = document.getElementById("game-screen");
 
 const computerArtistEl = document.getElementById("computer-artist");
 const requiredLetterEl = document.getElementById("required-letter");
+const sEscapeEl = document.getElementById("s-escape");
 const artistForm = document.getElementById("artist-form");
 const artistInput = document.getElementById("artist-input");
 const messageEl = document.getElementById("message");
@@ -62,14 +63,26 @@ const usedArtistsEl = document.getElementById("used-artists");
 
 let usedArtists = [];
 let requiredLetter = "";
+let escapeLetter = null;
 
 function normalizeArtist(name) {
   return name.trim().toLowerCase();
 }
 
-function getLastLetter(name) {
+function getLetters(name) {
   const cleaned = name.trim();
-  return cleaned.charAt(cleaned.length - 1).toUpperCase();
+  const lastLetter = cleaned.charAt(cleaned.length - 1).toUpperCase();
+
+  let sEscapeLetter = null;
+
+  if (lastLetter === "S" && cleaned.length > 1) {
+    sEscapeLetter = cleaned.charAt(cleaned.length - 2).toUpperCase();
+  }
+
+  return {
+    normal: lastLetter,
+    escape: sEscapeLetter
+  };
 }
 
 function artistExists(name) {
@@ -142,8 +155,20 @@ function computerTurn(letter = null) {
 
   addUsedArtist(artist, "computer");
 
-  requiredLetter = getLastLetter(artist);
-  requiredLetterEl.textContent = requiredLetter;
+const letters = getLetters(artist);
+
+requiredLetter = letters.normal;
+escapeLetter = letters.escape;
+
+requiredLetterEl.textContent = requiredLetter;
+
+if (escapeLetter) {
+  sEscapeEl.textContent = `S ESCAPE → ${escapeLetter} · −2`;
+  sEscapeEl.classList.remove("hidden");
+} else {
+  sEscapeEl.textContent = "";
+  sEscapeEl.classList.add("hidden");
+}
 
   artistInput.value = "";
   artistInput.focus();
@@ -184,19 +209,37 @@ function handlePlayerTurn(event) {
     return;
   }
 
-  if (validArtist.charAt(0).toUpperCase() !== requiredLetter) {
+  const firstLetter = validArtist.charAt(0).toUpperCase();
+
+const usedNormalLetter = firstLetter === requiredLetter;
+const usedEscapeLetter =
+  escapeLetter && firstLetter === escapeLetter;
+
+if (!usedNormalLetter && !usedEscapeLetter) {
+  if (escapeLetter) {
+    messageEl.textContent =
+      `Artist must begin with ${requiredLetter}, or ${escapeLetter} using S Escape.`;
+  } else {
     messageEl.textContent =
       `Artist must begin with ${requiredLetter}.`;
-    return;
   }
+
+  return;
+}
+
+if (usedEscapeLetter) {
+  messageEl.textContent = "S ESCAPE · −2";
+} else {
+  messageEl.textContent = "";
+}
 
   messageEl.textContent = "";
 
   addUsedArtist(validArtist, "player");
 
-  const nextLetter = getLastLetter(validArtist);
+  const nextLetters = getLetters(validArtist);
 
-  computerTurn(nextLetter);
+computerTurn(nextLetters.normal);
 }
 
 startButton.addEventListener("click", startGame);
