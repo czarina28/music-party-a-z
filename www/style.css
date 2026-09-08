@@ -66,9 +66,8 @@ input:focus { outline: 1px solid #f4f0e8; }
   .required-letter { font-size: 50px; }
   form { flex-wrap: nowrap; gap: 8px; }
   input { flex: 1 1 auto; width: auto; padding: 12px; font-size: 16px; }
-  .voice-language { flex: 0 0 54px; min-height: 44px; }
-  .voice-button { flex: 0 0 52px; min-height: 44px; }
-  form button[type="submit"] { flex: 0 0 auto; min-height: 44px; padding: 12px 16px; }
+  .voice-language, .voice-button { display: none !important; }
+  form button[type="submit"] { flex: 0 0 auto; min-height: 44px; padding: 12px 18px; }
   .message { min-height: 24px; padding-top: 8px; }
   .used-section { margin-top: 22px; }
   .start-actions, .game-actions { flex-wrap: wrap; }
