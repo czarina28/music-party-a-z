@@ -109,7 +109,11 @@ async function loadValidationBucket(letter) {
     .then(text => {
       const bucket = new Map();
       for (const name of text.split(/\r?\n/)) {
-        if (name) bucket.set(normalizeArtist(name), name);
+        if (!name) continue;
+        bucket.set(normalizeArtist(name), name);
+        if (/^the\s+/i.test(name)) {
+          bucket.set(normalizeArtist(name.replace(/^the\s+/i, "")), name);
+        }
       }
       validationBuckets.set(key, bucket);
       validationLoads.delete(key);
@@ -127,8 +131,18 @@ async function loadValidationBucket(letter) {
 async function validateArtist(name) {
   const letter = firstGameplayLetter(name);
   if (!/^[A-Z]$/.test(letter)) return null;
+
+  const normalized = normalizeArtist(name);
   const bucket = await loadValidationBucket(letter);
-  const canonical = bucket.get(normalizeArtist(name));
+  let canonical = bucket.get(normalized);
+
+  // If the player omits a leading "The", the canonical artist lives in the T shard.
+  if (!canonical && letter !== "T") {
+    const tBucket = await loadValidationBucket("T");
+    const withThe = normalizeArtist(`The ${name}`);
+    canonical = tBucket.get(withThe) || tBucket.get(normalized);
+  }
+
   return canonical ? { name: canonical, source: "local-db" } : null;
 }
 
@@ -243,17 +257,7 @@ async function handlePlayerTurn(event) {
   const entry = artistInput.value.trim();
   if (!entry || artistInput.disabled) return;
 
-  const entryFirstLetter = firstGameplayLetter(entry);
-  const couldUseNormalLetter = entryFirstLetter === requiredLetter;
-  const couldUseEscapeLetter = escapeLetter && entryFirstLetter === escapeLetter;
-
-  if (!couldUseNormalLetter && !couldUseEscapeLetter) {
-    messageEl.textContent = escapeLetter
-      ? `Artist must begin with ${requiredLetter}, or ${escapeLetter} using S Escape.`
-      : `Artist must begin with ${requiredLetter}.`;
-    return;
-  }
-
+  // Validate first because an omitted leading "The" can change the canonical gameplay letter.
   artistInput.disabled = true;
   messageEl.textContent = "Checking artist…";
 
@@ -289,8 +293,8 @@ async function handlePlayerTurn(event) {
   if (!usedNormalLetter && !usedEscapeLetter) {
     artistInput.disabled = false;
     messageEl.textContent = escapeLetter
-      ? `Artist must begin with ${requiredLetter}, or ${escapeLetter} using S Escape.`
-      : `Artist must begin with ${requiredLetter}.`;
+      ? `${validArtist} begins with ${firstLetter}. You need ${requiredLetter}, or ${escapeLetter} using S Escape.`
+      : `${validArtist} begins with ${firstLetter}. You need ${requiredLetter}.`;
     artistInput.focus();
     return;
   }
