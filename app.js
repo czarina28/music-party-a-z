@@ -32,6 +32,7 @@ let escapeLetter = null;
 const validatedArtists = new Map();
 const publishedArtists = new Map();
 const computerPools = new Map();
+const poolLoads = new Map();
 
 let lastMusicBrainzRequest = 0;
 let musicBrainzQueue = Promise.resolve();
@@ -42,10 +43,7 @@ function normalizeArtist(name) {
 }
 
 function gameplayLetter(character) {
-  return character
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toUpperCase();
+  return character.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
 }
 
 function firstGameplayLetter(name) {
@@ -160,26 +158,50 @@ async function validateArtist(name) {
   return match ? { ...match, source: "musicbrainz" } : null;
 }
 
-async function musicBrainzArtistsForLetter(letter) {
-  if (computerPools.has(letter)) {
-    return computerPools.get(letter).filter(name => !artistWasUsed(name));
-  }
+async function loadComputerPool(letter) {
+  if (computerPools.has(letter)) return computerPools.get(letter);
+  if (poolLoads.has(letter)) return poolLoads.get(letter);
 
-  const data = await searchMusicBrainz(`artist:${letter}*`, 25);
-  const candidates = (data.artists || []).filter(artist =>
-    artist.name && firstGameplayLetter(artist.name) === letter && !artistWasUsed(artist.name)
-  );
+  const load = (async () => {
+    const data = await searchMusicBrainz(`artist:${letter}*`, 12);
+    const candidates = (data.artists || []).filter(artist =>
+      artist.name && firstGameplayLetter(artist.name) === letter
+    );
 
-  const published = [];
-  for (const artist of candidates) {
-    if (await hasOfficialRelease(artist.id)) {
-      published.push(artist.name);
-      if (published.length >= 3) break;
+    const published = [];
+    for (const artist of candidates) {
+      if (await hasOfficialRelease(artist.id)) {
+        published.push(artist.name);
+        break;
+      }
     }
-  }
 
-  computerPools.set(letter, published);
-  return published;
+    computerPools.set(letter, published);
+    poolLoads.delete(letter);
+    return published;
+  })().catch(error => {
+    poolLoads.delete(letter);
+    throw error;
+  });
+
+  poolLoads.set(letter, load);
+  return load;
+}
+
+function prefetchLetter(letter) {
+  if (!letter || availableLocalArtists(letter).length || computerPools.has(letter) || poolLoads.has(letter)) return;
+  loadComputerPool(letter).catch(() => {});
+}
+
+async function computerChoices(letter) {
+  const local = availableLocalArtists(letter);
+  if (local.length) return local;
+
+  const remote = computerPools.has(letter)
+    ? computerPools.get(letter)
+    : await loadComputerPool(letter);
+
+  return remote.filter(name => !artistWasUsed(name));
 }
 
 async function chooseComputerArtist(letter = null, alternateLetter = null) {
@@ -190,14 +212,11 @@ async function chooseComputerArtist(letter = null, alternateLetter = null) {
       : null;
   }
 
-  let choices = availableLocalArtists(letter);
-
-  if (choices.length === 0) {
-    try {
-      choices = await musicBrainzArtistsForLetter(letter);
-    } catch (error) {
-      choices = [];
-    }
+  let choices = [];
+  try {
+    choices = await computerChoices(letter);
+  } catch (error) {
+    choices = availableLocalArtists(letter);
   }
 
   if (choices.length) {
@@ -205,14 +224,11 @@ async function chooseComputerArtist(letter = null, alternateLetter = null) {
   }
 
   if (alternateLetter) {
-    let escapeChoices = availableLocalArtists(alternateLetter);
-
-    if (escapeChoices.length === 0) {
-      try {
-        escapeChoices = await musicBrainzArtistsForLetter(alternateLetter);
-      } catch (error) {
-        escapeChoices = [];
-      }
+    let escapeChoices = [];
+    try {
+      escapeChoices = await computerChoices(alternateLetter);
+    } catch (error) {
+      escapeChoices = availableLocalArtists(alternateLetter);
     }
 
     if (escapeChoices.length) {
@@ -254,6 +270,9 @@ async function computerTurn(letter = null, alternateLetter = null) {
   artistInput.disabled = false;
   artistInput.value = "";
   artistInput.focus();
+
+  prefetchLetter(requiredLetter);
+  if (escapeLetter) prefetchLetter(escapeLetter);
 }
 
 function endGame(winner) {
