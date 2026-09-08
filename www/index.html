@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Music Party A–Z — the artist name game. Name a published musical artist, follow the last letter, and keep the chain alive.">
+  <meta name="theme-color" content="#111111">
+  <meta property="og:title" content="Music Party A–Z">
+  <meta property="og:description" content="The artist name game. Name a published musical artist, follow the last letter, and keep the chain alive.">
+  <meta property="og:type" content="website">
+  <title>Music Party A–Z — The Artist Name Game</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="game">
+    <header>
+      <div class="eyebrow">THE ARTIST NAME GAME</div>
+      <h1><span class="title-music">Music</span> <span class="title-party">Party</span> <span class="title-az">A–Z</span></h1>
+    </header>
+
+    <section id="start-screen">
+      <div class="rules">
+        <div class="label">HOW TO PLAY</div>
+        <p>Name a published musical artist whose name begins with the last letter of the previous artist. No repeats. Ignore <strong>The</strong> at the beginning of a name.</p>
+        <p><strong>SCORING</strong> · Every valid artist is +1 point. If an artist ends in <strong>S</strong>, you may escape to the letter before the S for −2 points. Pass for −3.</p>
+      </div>
+      <div class="start-actions">
+        <button id="start-button">START GAME</button>
+        <button id="rules-button" class="secondary-button">FULL RULES</button>
+      </div>
+    </section>
+
+    <section id="rules-screen" class="hidden">
+      <div class="label">RULES OF THE GAME</div>
+      <ol class="full-rules">
+        <li>Name a musical artist or act.</li>
+        <li>Your artist must begin with the final letter of the previous artist.</li>
+        <li>Ignore <strong>The</strong> at the beginning of an artist name. <em>The Supremes</em> plays as S.</li>
+        <li>An artist or act may only be used once in a game.</li>
+        <li>Artists must be <strong>published</strong> — they must have an officially released recording.</li>
+        <li>Every valid artist you play earns <strong>1 point</strong>.</li>
+        <li><strong>S Escape:</strong> if the previous artist ends in S, you may use the letter immediately before the S instead. S Escape costs <strong>2 points</strong>.</li>
+        <li><strong>Pass:</strong> if you're stuck, you may pass for <strong>−3 points</strong>. The computer plays from the current letter and the game continues.</li>
+      </ol>
+      <button id="rules-back-button" class="secondary-button">BACK</button>
+    </section>
+
+    <section id="game-screen" class="hidden">
+      <div class="score-row"><div class="label">SCORE</div><div id="score" class="score">0</div></div>
+      <div class="computer-turn"><div id="computer-label" class="label">COMPUTER</div><div id="computer-artist" class="artist-name"></div></div>
+      <div class="letter-box"><div class="label">YOUR LETTER</div><div id="required-letter" class="required-letter"></div><div id="s-escape" class="s-escape hidden"></div></div>
+      <form id="artist-form"><input id="artist-input" type="text" autocomplete="off" autocapitalize="words" enterkeyhint="go" aria-label="Artist name" placeholder="Name an artist..."><select id="voice-language" class="voice-language hidden" aria-label="Voice language" title="Voice language"><option value="en-US">EN</option><option value="de-DE">DE</option><option value="fr-FR">FR</option><option value="es-ES">ES</option><option value="it-IT">IT</option></select><button id="voice-button" class="voice-button hidden" type="button" aria-label="Speak artist" title="Speak artist">MIC</button><button type="submit">PLAY</button></form>
+      <div id="message" class="message" role="status" aria-live="polite"></div>
+      <div class="game-actions"><button id="pass-button" class="secondary-button">PASS −3</button><button id="new-game-button" class="secondary-button">NEW GAME</button><button id="result-rules-button" class="secondary-button hidden">RULES</button></div>
+      <div class="used-section"><div class="label">USED ARTISTS</div><div id="used-artists" class="used-artists"></div></div>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
