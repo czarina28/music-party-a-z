@@ -1,15 +1,30 @@
-const fallbackArtists = [
-  "ABBA", "Aerosmith", "Aretha Franklin", "Bauhaus", "Beastie Boys",
-  "Blondie", "Bob Dylan", "Bob Mould", "Carole King", "David Bowie",
-  "Depeche Mode", "Elvis Costello", "Fleetwood Mac", "George Harrison",
-  "Iggy Pop", "Jefferson Airplane", "Jimi Hendrix", "Kate Bush",
-  "Led Zeppelin", "Lou Reed", "Madonna", "Marvin Gaye", "Neil Young",
-  "Nico", "Otis Redding", "Patti Smith", "Paul Simon", "Prince",
-  "Radiohead", "Roxy Music", "Sparks", "Stevie Wonder", "Talking Heads",
-  "The Beatles", "The Cars", "The Clash", "The Cure", "The Doors",
-  "The Hollies", "The Kinks", "The Rolling Stones", "The Shins",
-  "The Strokes", "The Velvet Underground", "The Who", "Violent Femmes",
-  "XTC", "Yardbirds"
+const computerArtists = [
+  "ABBA", "AC/DC", "Adele", "Aerosmith", "Al Green", "Alice Cooper", "Amy Winehouse", "Arcade Fire", "Arctic Monkeys", "Aretha Franklin",
+  "Bauhaus", "Beastie Boys", "Beck", "Bee Gees", "Beyoncé", "Billy Idol", "Billy Joel", "Black Sabbath", "Blondie", "Blur", "Bob Dylan", "Bob Marley", "Bob Mould", "Bon Iver", "Bruce Springsteen",
+  "CAN", "Carole King", "Cat Stevens", "Cheap Trick", "Cher", "Chuck Berry", "Cocteau Twins", "Coldplay", "Cream", "Crowded House", "Curtis Mayfield",
+  "Daft Punk", "David Bowie", "Depeche Mode", "Dinosaur Jr.", "Dire Straits", "Dolly Parton", "Donna Summer", "Duran Duran",
+  "Eagles", "Echo & the Bunnymen", "Elton John", "Elvis Costello", "Elvis Presley", "Emmylou Harris", "Eurythmics", "Evanescence",
+  "Fiona Apple", "Fleetwood Mac", "Foo Fighters", "Frank Sinatra", "Franz Ferdinand",
+  "Garbage", "George Harrison", "George Michael", "Gorillaz", "Grateful Dead", "Green Day",
+  "Haim", "Harry Styles", "Heart", "Hole", "Howard Jones", "Hüsker Dü",
+  "Iggy Pop", "INXS", "Iron Maiden",
+  "Jack White", "Janis Joplin", "Jefferson Airplane", "Jimi Hendrix", "Joan Baez", "Joy Division", "Judas Priest",
+  "Kate Bush", "Kendrick Lamar", "Kraftwerk", "Kylie Minogue",
+  "LCD Soundsystem", "Led Zeppelin", "Leonard Cohen", "Lorde", "Lou Reed", "Love",
+  "Madonna", "Marvin Gaye", "Massive Attack", "Mazzy Star", "Metallica", "MGMT", "Michael Jackson", "Miley Cyrus", "Moby", "Morrissey", "Motörhead", "Muddy Waters",
+  "Nancy Sinatra", "Neil Young", "New Order", "Nick Cave", "Nick Drake", "Nico", "Nirvana",
+  "Oasis", "Olivia Rodrigo", "Otis Redding", "Outkast",
+  "Patti Smith", "Paul McCartney", "Paul Simon", "Pearl Jam", "Pet Shop Boys", "Peter Gabriel", "PJ Harvey", "Pixies", "Pink Floyd", "Portishead", "Prince", "Pulp",
+  "Queen", "Queens of the Stone Age",
+  "Radiohead", "R.E.M.", "Ramones", "Rammstein", "Ray Charles", "Red Hot Chili Peppers", "Roxy Music", "Run-D.M.C.",
+  "Santana", "Sex Pistols", "Sia", "Sinéad O'Connor", "Siouxsie and the Banshees", "Sleater-Kinney", "Sonic Youth", "Sparks", "Steely Dan", "Stevie Wonder", "Stone Roses", "Suede", "Supertramp",
+  "Talking Heads", "Tame Impala", "Taylor Swift", "Tears for Fears", "The Beach Boys", "The Beatles", "The Byrds", "The Cars", "The Clash", "The Cranberries", "The Cure", "The Doors", "The Go-Go's", "The Hollies", "The Jam", "The Jesus and Mary Chain", "The Kinks", "The Monkees", "The National", "The Notwist", "The Police", "The Pretenders", "The Replacements", "The Rolling Stones", "The Shins", "The Smiths", "The Stooges", "The Strokes", "The Supremes", "The Velvet Underground", "The White Stripes", "The Who", "The Yardbirds", "Tori Amos", "Tracy Chapman", "T. Rex", "TV on the Radio",
+  "U2", "Ultravox",
+  "Van Morrison", "Violent Femmes",
+  "Weezer", "Wilco", "Wire",
+  "XTC",
+  "Yeah Yeah Yeahs",
+  "ZZ Top"
 ];
 
 const startButton = document.getElementById("start-button");
@@ -29,28 +44,38 @@ const letterBox = document.querySelector(".letter-box");
 let usedArtists = [];
 let requiredLetter = "";
 let escapeLetter = null;
-let computerArtists = [];
-let computerDataPromise = null;
 const validationBuckets = new Map();
 const validationLoads = new Map();
 
 function normalizeArtist(name) {
-  return name.trim().toLowerCase();
+  return name
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[’‘`´]/g, "'")
+    .replace(/[^a-zA-Z0-9]+/g, "")
+    .toLowerCase();
 }
 
-function gameplayLetter(character) {
-  return character.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+function gameplayLetters(name) {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .match(/[A-Z]/g) || [];
 }
 
 function firstGameplayLetter(name) {
-  return gameplayLetter(name.trim().charAt(0));
+  const letters = gameplayLetters(name.trim());
+  return letters[0] || "";
 }
 
 function getLetters(name) {
-  const cleaned = name.trim();
-  const lastLetter = gameplayLetter(cleaned.charAt(cleaned.length - 1));
-  const sEscapeLetter = lastLetter === "S" && cleaned.length > 1
-    ? gameplayLetter(cleaned.charAt(cleaned.length - 2))
+  const letters = gameplayLetters(name.trim());
+  if (!letters.length) return { normal: "", escape: null };
+  const lastLetter = letters[letters.length - 1];
+  const sEscapeLetter = lastLetter === "S" && letters.length > 1
+    ? letters[letters.length - 2]
     : null;
   return { normal: lastLetter, escape: sEscapeLetter };
 }
@@ -69,27 +94,6 @@ function renderUsedArtists() {
   usedArtistsEl.innerHTML = usedArtists
     .map(artist => `<span class="${artist.player}">${artist.name}</span>`)
     .join("");
-}
-
-async function loadComputerArtists() {
-  if (computerArtists.length) return computerArtists;
-  if (computerDataPromise) return computerDataPromise;
-
-  computerDataPromise = fetch("data/computer.json")
-    .then(response => {
-      if (!response.ok) throw new Error(`Computer data HTTP ${response.status}`);
-      return response.json();
-    })
-    .then(data => {
-      computerArtists = Array.isArray(data) && data.length ? data : fallbackArtists;
-      return computerArtists;
-    })
-    .catch(() => {
-      computerArtists = fallbackArtists;
-      return computerArtists;
-    });
-
-  return computerDataPromise;
 }
 
 async function loadValidationBucket(letter) {
@@ -133,30 +137,27 @@ function prefetchValidation(letter) {
   loadValidationBucket(letter).catch(() => {});
 }
 
-async function computerChoices(letter) {
-  const vocabulary = await loadComputerArtists();
-  return vocabulary.filter(artist =>
+function computerChoices(letter) {
+  return computerArtists.filter(artist =>
     firstGameplayLetter(artist) === letter && !artistWasUsed(artist)
   );
 }
 
-async function chooseComputerArtist(letter = null, alternateLetter = null) {
-  const vocabulary = await loadComputerArtists();
-
+function chooseComputerArtist(letter = null, alternateLetter = null) {
   if (!letter) {
-    const choices = vocabulary.filter(artist => !artistWasUsed(artist));
+    const choices = computerArtists.filter(artist => !artistWasUsed(artist));
     return choices.length
       ? { artist: choices[Math.floor(Math.random() * choices.length)], usedEscape: false }
       : null;
   }
 
-  const choices = await computerChoices(letter);
+  const choices = computerChoices(letter);
   if (choices.length) {
     return { artist: choices[Math.floor(Math.random() * choices.length)], usedEscape: false };
   }
 
   if (alternateLetter) {
-    const escapeChoices = await computerChoices(alternateLetter);
+    const escapeChoices = computerChoices(alternateLetter);
     if (escapeChoices.length) {
       return { artist: escapeChoices[Math.floor(Math.random() * escapeChoices.length)], usedEscape: true };
     }
@@ -167,8 +168,8 @@ async function chooseComputerArtist(letter = null, alternateLetter = null) {
 
 async function computerTurn(letter = null, alternateLetter = null) {
   artistInput.disabled = true;
-  messageEl.textContent = letter ? "Computer is thinking…" : "";
-  const choice = await chooseComputerArtist(letter, alternateLetter);
+  messageEl.textContent = "";
+  const choice = chooseComputerArtist(letter, alternateLetter);
 
   if (!choice) {
     endGame("player");
@@ -302,8 +303,6 @@ async function handlePlayerTurn(event) {
     messageEl.textContent = "S ESCAPE · −2";
   }
 }
-
-loadComputerArtists();
 
 startButton.addEventListener("click", startGame);
 artistForm.addEventListener("submit", handlePlayerTurn);
