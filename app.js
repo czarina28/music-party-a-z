@@ -48,21 +48,11 @@ const validationBuckets = new Map();
 const validationLoads = new Map();
 
 function normalizeArtist(name) {
-  return name
-    .trim()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[’‘`´]/g, "'")
-    .replace(/[^a-zA-Z0-9]+/g, "")
-    .toLowerCase();
+  return name.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[’‘`´]/g, "'").replace(/[^a-zA-Z0-9]+/g, "").toLowerCase();
 }
 
 function gameplayLetters(name) {
-  return name
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toUpperCase()
-    .match(/[A-Z]/g) || [];
+  return name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().match(/[A-Z]/g) || [];
 }
 
 function firstGameplayLetter(name) {
@@ -74,10 +64,7 @@ function getLetters(name) {
   const letters = gameplayLetters(name.trim());
   if (!letters.length) return { normal: "", escape: null };
   const lastLetter = letters[letters.length - 1];
-  const sEscapeLetter = lastLetter === "S" && letters.length > 1
-    ? letters[letters.length - 2]
-    : null;
-  return { normal: lastLetter, escape: sEscapeLetter };
+  return { normal: lastLetter, escape: lastLetter === "S" && letters.length > 1 ? letters[letters.length - 2] : null };
 }
 
 function artistWasUsed(name) {
@@ -91,16 +78,13 @@ function addUsedArtist(artist, player) {
 }
 
 function renderUsedArtists() {
-  usedArtistsEl.innerHTML = usedArtists
-    .map(artist => `<span class="${artist.player}">${artist.name}</span>`)
-    .join("");
+  usedArtistsEl.innerHTML = usedArtists.map(artist => `<span class="${artist.player}">${artist.name}</span>`).join("");
 }
 
 async function loadValidationBucket(letter) {
   const key = letter.toLowerCase();
   if (validationBuckets.has(key)) return validationBuckets.get(key);
   if (validationLoads.has(key)) return validationLoads.get(key);
-
   const load = fetch(`data/artists/${key}.txt`)
     .then(response => {
       if (!response.ok) throw new Error(`Validation data HTTP ${response.status}`);
@@ -109,11 +93,7 @@ async function loadValidationBucket(letter) {
     .then(text => {
       const bucket = new Map();
       for (const name of text.split(/\r?\n/)) {
-        if (!name) continue;
-        bucket.set(normalizeArtist(name), name);
-        if (/^the\s+/i.test(name)) {
-          bucket.set(normalizeArtist(name.replace(/^the\s+/i, "")), name);
-        }
+        if (name) bucket.set(normalizeArtist(name), name);
       }
       validationBuckets.set(key, bucket);
       validationLoads.delete(key);
@@ -123,60 +103,59 @@ async function loadValidationBucket(letter) {
       validationLoads.delete(key);
       throw error;
     });
-
   validationLoads.set(key, load);
   return load;
 }
 
 async function validateArtist(name) {
-  const letter = firstGameplayLetter(name);
-  if (!/^[A-Z]$/.test(letter)) return null;
-
   const normalized = normalizeArtist(name);
-  const bucket = await loadValidationBucket(letter);
-  let canonical = bucket.get(normalized);
+  const typedWithoutThe = name.replace(/^the\s+/i, "").trim();
+  const candidateNames = [name];
+  if (/^the\s+/i.test(name)) candidateNames.push(typedWithoutThe);
+  else candidateNames.push(`The ${name}`);
 
-  // If the player omits a leading "The", the canonical artist lives in the T shard.
-  if (!canonical && letter !== "T") {
-    const tBucket = await loadValidationBucket("T");
-    const withThe = normalizeArtist(`The ${name}`);
-    canonical = tBucket.get(withThe) || tBucket.get(normalized);
+  // Search the shard implied by each candidate's actual first letter. This lets
+  // "Supremes" find "The Supremes" in T, and also lets "The Supremes" fall
+  // back to S if a database happens to store the act without the article.
+  const letters = [...new Set(candidateNames.map(firstGameplayLetter).filter(letter => /^[A-Z]$/.test(letter)))];
+  for (const letter of letters) {
+    const bucket = await loadValidationBucket(letter);
+    for (const candidate of candidateNames) {
+      const canonical = bucket.get(normalizeArtist(candidate));
+      if (canonical) return { name: canonical, source: "local-db" };
+    }
+    // Also compare the article-less normalized form against canonical names in
+    // the T shard without changing how those canonical names play in the game.
+    if (letter === "T") {
+      for (const canonical of bucket.values()) {
+        if (/^the\s+/i.test(canonical) && normalizeArtist(canonical.replace(/^the\s+/i, "")) === normalizeArtist(typedWithoutThe)) {
+          return { name: canonical, source: "local-db" };
+        }
+      }
+    }
   }
-
-  return canonical ? { name: canonical, source: "local-db" } : null;
+  return null;
 }
 
 function prefetchValidation(letter) {
-  if (!letter || !/^[A-Z]$/.test(letter)) return;
-  loadValidationBucket(letter).catch(() => {});
+  if (letter && /^[A-Z]$/.test(letter)) loadValidationBucket(letter).catch(() => {});
 }
 
 function computerChoices(letter) {
-  return computerArtists.filter(artist =>
-    firstGameplayLetter(artist) === letter && !artistWasUsed(artist)
-  );
+  return computerArtists.filter(artist => firstGameplayLetter(artist) === letter && !artistWasUsed(artist));
 }
 
 function chooseComputerArtist(letter = null, alternateLetter = null) {
   if (!letter) {
     const choices = computerArtists.filter(artist => !artistWasUsed(artist));
-    return choices.length
-      ? { artist: choices[Math.floor(Math.random() * choices.length)], usedEscape: false }
-      : null;
+    return choices.length ? { artist: choices[Math.floor(Math.random() * choices.length)], usedEscape: false } : null;
   }
-
   const choices = computerChoices(letter);
-  if (choices.length) {
-    return { artist: choices[Math.floor(Math.random() * choices.length)], usedEscape: false };
-  }
-
+  if (choices.length) return { artist: choices[Math.floor(Math.random() * choices.length)], usedEscape: false };
   if (alternateLetter) {
     const escapeChoices = computerChoices(alternateLetter);
-    if (escapeChoices.length) {
-      return { artist: escapeChoices[Math.floor(Math.random() * escapeChoices.length)], usedEscape: true };
-    }
+    if (escapeChoices.length) return { artist: escapeChoices[Math.floor(Math.random() * escapeChoices.length)], usedEscape: true };
   }
-
   return null;
 }
 
@@ -184,22 +163,15 @@ async function computerTurn(letter = null, alternateLetter = null) {
   artistInput.disabled = true;
   messageEl.textContent = "";
   const choice = chooseComputerArtist(letter, alternateLetter);
-
-  if (!choice) {
-    endGame("player");
-    return;
-  }
-
+  if (!choice) { endGame("player"); return; }
   const artist = choice.artist;
   computerArtistEl.textContent = artist;
   addUsedArtist(artist, "computer");
-
   const letters = getLetters(artist);
   requiredLetter = letters.normal;
   escapeLetter = letters.escape;
   requiredLetterEl.textContent = requiredLetter;
   messageEl.textContent = choice.usedEscape ? "COMPUTER S ESCAPE · −2" : "";
-
   if (escapeLetter) {
     sEscapeEl.textContent = `S ESCAPE → ${escapeLetter} · −2`;
     sEscapeEl.classList.remove("hidden");
@@ -207,11 +179,9 @@ async function computerTurn(letter = null, alternateLetter = null) {
     sEscapeEl.textContent = "";
     sEscapeEl.classList.add("hidden");
   }
-
   artistInput.disabled = false;
   artistInput.value = "";
   artistInput.focus();
-
   prefetchValidation(requiredLetter);
   if (escapeLetter) prefetchValidation(escapeLetter);
 }
@@ -222,7 +192,6 @@ function endGame(winner) {
   letterBox.classList.add("hidden");
   sEscapeEl.textContent = "";
   sEscapeEl.classList.add("hidden");
-
   const artistCount = usedArtists.length;
   if (winner === "computer") {
     computerArtistEl.textContent = "COMPUTER WINS";
@@ -256,11 +225,8 @@ async function handlePlayerTurn(event) {
   event.preventDefault();
   const entry = artistInput.value.trim();
   if (!entry || artistInput.disabled) return;
-
-  // Validate first because an omitted leading "The" can change the canonical gameplay letter.
   artistInput.disabled = true;
   messageEl.textContent = "Checking artist…";
-
   let validation;
   try {
     validation = await validateArtist(entry);
@@ -270,14 +236,12 @@ async function handlePlayerTurn(event) {
     messageEl.textContent = "Couldn't load the local artist database.";
     return;
   }
-
   if (!validation) {
     artistInput.disabled = false;
     messageEl.textContent = "I couldn't verify a published artist by that name.";
     artistInput.focus();
     return;
   }
-
   const validArtist = validation.name;
   if (artistWasUsed(validArtist)) {
     artistInput.disabled = false;
@@ -285,11 +249,9 @@ async function handlePlayerTurn(event) {
     artistInput.focus();
     return;
   }
-
   const firstLetter = firstGameplayLetter(validArtist);
   const usedNormalLetter = firstLetter === requiredLetter;
   const usedEscapeLetter = escapeLetter && firstLetter === escapeLetter;
-
   if (!usedNormalLetter && !usedEscapeLetter) {
     artistInput.disabled = false;
     messageEl.textContent = escapeLetter
@@ -298,14 +260,10 @@ async function handlePlayerTurn(event) {
     artistInput.focus();
     return;
   }
-
   addUsedArtist(validArtist, "player");
   const nextLetters = getLetters(validArtist);
   await computerTurn(nextLetters.normal, nextLetters.escape);
-
-  if (usedEscapeLetter && !artistInput.disabled) {
-    messageEl.textContent = "S ESCAPE · −2";
-  }
+  if (usedEscapeLetter && !artistInput.disabled) messageEl.textContent = "S ESCAPE · −2";
 }
 
 startButton.addEventListener("click", startGame);
