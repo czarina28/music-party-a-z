@@ -120,8 +120,6 @@ function addUsedArtist(artist, player) {
   });
 
   renderUsedArtists();
-
-
 }
 
 function renderUsedArtists() {
@@ -134,45 +132,56 @@ function renderUsedArtists() {
     .join("");
 }
 
-function computerTurn(letter = null) {
+function computerTurn(letter = null, alternateLetter = null) {
   let choices;
+  let usedEscape = false;
 
   if (letter) {
     choices = availableArtists(letter);
+
+    if (choices.length === 0 && alternateLetter) {
+      choices = availableArtists(alternateLetter);
+      usedEscape = choices.length > 0;
+    }
   } else {
     choices = artists.filter(artist => !artistWasUsed(artist));
   }
 
   if (choices.length === 0) {
-  endGame("player");
-  return;
-}
+    endGame("player");
+    return;
+  }
 
-  const artist =
-    choices[Math.floor(Math.random() * choices.length)];
+  const artist = choices[Math.floor(Math.random() * choices.length)];
 
   computerArtistEl.textContent = artist;
-
   addUsedArtist(artist, "computer");
 
-const letters = getLetters(artist);
+  const letters = getLetters(artist);
 
-requiredLetter = letters.normal;
-escapeLetter = letters.escape;
+  requiredLetter = letters.normal;
+  escapeLetter = letters.escape;
 
-requiredLetterEl.textContent = requiredLetter;
+  requiredLetterEl.textContent = requiredLetter;
 
-if (escapeLetter) {
-  sEscapeEl.textContent = `S ESCAPE → ${escapeLetter} · −2`;
-  sEscapeEl.classList.remove("hidden");
-} else {
-  sEscapeEl.textContent = "";
-  sEscapeEl.classList.add("hidden");
-}
+  if (usedEscape) {
+    messageEl.textContent = "COMPUTER S ESCAPE · −2";
+  } else {
+    messageEl.textContent = "";
+  }
+
+  if (escapeLetter) {
+    sEscapeEl.textContent = `S ESCAPE → ${escapeLetter} · −2`;
+    sEscapeEl.classList.remove("hidden");
+  } else {
+    sEscapeEl.textContent = "";
+    sEscapeEl.classList.add("hidden");
+  }
 
   artistInput.value = "";
   artistInput.focus();
 }
+
 function endGame(winner) {
   artistInput.disabled = true;
   artistForm.classList.add("hidden");
@@ -231,48 +240,38 @@ function handlePlayerTurn(event) {
   const validArtist = artistExists(entry);
 
   if (!validArtist) {
-    messageEl.textContent =
-      "I don't know that artist yet.";
+    messageEl.textContent = "I don't know that artist yet.";
     return;
   }
 
   if (artistWasUsed(validArtist)) {
-    messageEl.textContent =
-      `${validArtist} has already been used.`;
+    messageEl.textContent = `${validArtist} has already been used.`;
     return;
   }
 
   const firstLetter = validArtist.charAt(0).toUpperCase();
+  const usedNormalLetter = firstLetter === requiredLetter;
+  const usedEscapeLetter = escapeLetter && firstLetter === escapeLetter;
 
-const usedNormalLetter = firstLetter === requiredLetter;
-const usedEscapeLetter =
-  escapeLetter && firstLetter === escapeLetter;
+  if (!usedNormalLetter && !usedEscapeLetter) {
+    if (escapeLetter) {
+      messageEl.textContent =
+        `Artist must begin with ${requiredLetter}, or ${escapeLetter} using S Escape.`;
+    } else {
+      messageEl.textContent = `Artist must begin with ${requiredLetter}.`;
+    }
 
-if (!usedNormalLetter && !usedEscapeLetter) {
-  if (escapeLetter) {
-    messageEl.textContent =
-      `Artist must begin with ${requiredLetter}, or ${escapeLetter} using S Escape.`;
-  } else {
-    messageEl.textContent =
-      `Artist must begin with ${requiredLetter}.`;
+    return;
   }
-
-  return;
-}
-
-if (usedEscapeLetter) {
-  messageEl.textContent = "S ESCAPE · −2";
-} else {
-  messageEl.textContent = "";
-}
-
-  messageEl.textContent = "";
 
   addUsedArtist(validArtist, "player");
 
   const nextLetters = getLetters(validArtist);
+  computerTurn(nextLetters.normal, nextLetters.escape);
 
-computerTurn(nextLetters.normal);
+  if (usedEscapeLetter && !artistInput.disabled) {
+    messageEl.textContent = "S ESCAPE · −2";
+  }
 }
 
 startButton.addEventListener("click", startGame);
