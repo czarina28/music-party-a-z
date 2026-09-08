@@ -29,7 +29,7 @@ input:focus { outline: 1px solid #f4f0e8; }
 .voice-language, .voice-button { flex: 0 0 auto; border: 1px solid #555; background: transparent; color: #f4f0e8; font-size: 10px; font-weight: bold; letter-spacing: 0.08em; }
 .voice-language { padding: 0 8px; cursor: pointer; }
 .voice-language option { background: #111; color: #f4f0e8; }
-.voice-button { padding: 14px 12px; }
+.voice-button { min-width: 52px; padding: 14px 12px; }
 .voice-button.listening { border-color: #e45d4f; color: #e45d4f; }
 .message { min-height: 30px; padding-top: 12px; font-size: 15px; opacity: 0.75; }
 .used-section { margin-top: 38px; }
