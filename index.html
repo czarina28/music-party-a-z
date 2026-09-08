@@ -14,10 +14,6 @@
       <h1>Music Party <span>A–Z</span></h1>
     </header>
 
-    <div id="musicbrainz-test" style="margin: 0 0 1rem; font-size: 0.85rem; opacity: 0.8;">
-      MusicBrainz test: checking CAN…
-    </div>
-
     <section id="start-screen">
       <p class="intro">
         Name an artist. Use the last letter to name the next one.
@@ -65,29 +61,5 @@
   </main>
 
   <script src="app.js"></script>
-  <script>
-    const musicBrainzTestEl = document.getElementById("musicbrainz-test");
-
-    fetch("https://musicbrainz.org/ws/2/artist/?query=artist%3ACAN&fmt=json&limit=5")
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-        return response.json();
-      })
-      .then(data => {
-        const foundCan = data.artists?.some(
-          artist => artist.name.toLowerCase() === "can"
-        );
-
-        musicBrainzTestEl.textContent = foundCan
-          ? "MusicBrainz test: CAN found ✓"
-          : "MusicBrainz test: connected, but CAN not found";
-      })
-      .catch(error => {
-        musicBrainzTestEl.textContent =
-          `MusicBrainz test failed: ${error.message}`;
-      });
-  </script>
 </body>
 </html>
