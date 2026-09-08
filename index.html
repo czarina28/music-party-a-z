@@ -3,7 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Music Party A–Z</title>
+  <meta name="description" content="Music Party A–Z — the artist name game. Name a published musical artist, follow the last letter, and keep the chain alive.">
+  <meta name="theme-color" content="#111111">
+  <meta property="og:title" content="Music Party A–Z">
+  <meta property="og:description" content="The artist name game. Name a published musical artist, follow the last letter, and keep the chain alive.">
+  <meta property="og:type" content="website">
+  <title>Music Party A–Z — The Artist Name Game</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -44,8 +50,8 @@
       <div class="score-row"><div class="label">SCORE</div><div id="score" class="score">0</div></div>
       <div class="computer-turn"><div id="computer-label" class="label">COMPUTER</div><div id="computer-artist" class="artist-name"></div></div>
       <div class="letter-box"><div class="label">YOUR LETTER</div><div id="required-letter" class="required-letter"></div><div id="s-escape" class="s-escape hidden"></div></div>
-      <form id="artist-form"><input id="artist-input" type="text" autocomplete="off" placeholder="Name an artist..."><select id="voice-language" class="voice-language hidden" aria-label="Voice language" title="Voice language"><option value="en-US">EN</option><option value="de-DE">DE</option><option value="fr-FR">FR</option><option value="es-ES">ES</option><option value="it-IT">IT</option></select><button id="voice-button" class="voice-button hidden" type="button" aria-label="Speak artist" title="Speak artist">MIC</button><button type="submit">PLAY</button></form>
-      <div id="message" class="message"></div>
+      <form id="artist-form"><input id="artist-input" type="text" autocomplete="off" autocapitalize="words" enterkeyhint="go" aria-label="Artist name" placeholder="Name an artist..."><select id="voice-language" class="voice-language hidden" aria-label="Voice language" title="Voice language"><option value="en-US">EN</option><option value="de-DE">DE</option><option value="fr-FR">FR</option><option value="es-ES">ES</option><option value="it-IT">IT</option></select><button id="voice-button" class="voice-button hidden" type="button" aria-label="Speak artist" title="Speak artist">MIC</button><button type="submit">PLAY</button></form>
+      <div id="message" class="message" role="status" aria-live="polite"></div>
       <div class="game-actions"><button id="pass-button" class="secondary-button">PASS −3</button><button id="new-game-button" class="secondary-button">NEW GAME</button><button id="result-rules-button" class="secondary-button hidden">RULES</button></div>
       <div class="used-section"><div class="label">USED ARTISTS</div><div id="used-artists" class="used-artists"></div></div>
     </section>
