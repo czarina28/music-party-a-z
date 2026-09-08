@@ -1,4 +1,4 @@
-const artists = [
+const fallbackArtists = [
   "ABBA", "Aerosmith", "Aretha Franklin", "Bauhaus", "Beastie Boys",
   "Blondie", "Bob Dylan", "Bob Mould", "Carole King", "David Bowie",
   "Depeche Mode", "Elvis Costello", "Fleetwood Mac", "George Harrison",
@@ -29,14 +29,10 @@ const letterBox = document.querySelector(".letter-box");
 let usedArtists = [];
 let requiredLetter = "";
 let escapeLetter = null;
-const validatedArtists = new Map();
-const publishedArtists = new Map();
-const computerPools = new Map();
-const poolLoads = new Map();
-
-let lastMusicBrainzRequest = 0;
-let musicBrainzQueue = Promise.resolve();
-const MUSICBRAINZ_DELAY = 1100;
+let computerArtists = [];
+let computerDataPromise = null;
+const validationBuckets = new Map();
+const validationLoads = new Map();
 
 function normalizeArtist(name) {
   return name.trim().toLowerCase();
@@ -59,18 +55,9 @@ function getLetters(name) {
   return { normal: lastLetter, escape: sEscapeLetter };
 }
 
-function localArtist(name) {
-  const normalized = normalizeArtist(name);
-  return artists.find(artist => normalizeArtist(artist) === normalized) || null;
-}
-
 function artistWasUsed(name) {
   const normalized = normalizeArtist(name);
   return usedArtists.some(artist => normalizeArtist(artist.name) === normalized);
-}
-
-function availableLocalArtists(letter) {
-  return artists.filter(artist => firstGameplayLetter(artist) === letter && !artistWasUsed(artist));
 }
 
 function addUsedArtist(artist, player) {
@@ -84,153 +71,92 @@ function renderUsedArtists() {
     .join("");
 }
 
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+async function loadComputerArtists() {
+  if (computerArtists.length) return computerArtists;
+  if (computerDataPromise) return computerDataPromise;
+
+  computerDataPromise = fetch("data/computer.json")
+    .then(response => {
+      if (!response.ok) throw new Error(`Computer data HTTP ${response.status}`);
+      return response.json();
+    })
+    .then(data => {
+      computerArtists = Array.isArray(data) && data.length ? data : fallbackArtists;
+      return computerArtists;
+    })
+    .catch(() => {
+      computerArtists = fallbackArtists;
+      return computerArtists;
+    });
+
+  return computerDataPromise;
 }
 
-function queuedMusicBrainzFetch(url) {
-  const task = async () => {
-    const wait = Math.max(0, MUSICBRAINZ_DELAY - (Date.now() - lastMusicBrainzRequest));
-    if (wait) await sleep(wait);
+async function loadValidationBucket(letter) {
+  const key = letter.toLowerCase();
+  if (validationBuckets.has(key)) return validationBuckets.get(key);
+  if (validationLoads.has(key)) return validationLoads.get(key);
 
-    let response = await fetch(url);
-    lastMusicBrainzRequest = Date.now();
-
-    if (response.status === 429 || response.status >= 500) {
-      await sleep(1500);
-      response = await fetch(url);
-      lastMusicBrainzRequest = Date.now();
-    }
-
-    if (!response.ok) throw new Error(`MusicBrainz returned HTTP ${response.status}`);
-    return response.json();
-  };
-
-  const result = musicBrainzQueue.then(task, task);
-  musicBrainzQueue = result.catch(() => {});
-  return result;
-}
-
-async function searchMusicBrainz(query, limit = 25) {
-  return queuedMusicBrainzFetch(
-    `https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(query)}&fmt=json&limit=${limit}`
-  );
-}
-
-async function hasOfficialRelease(artistId) {
-  if (publishedArtists.has(artistId)) return publishedArtists.get(artistId);
-
-  const data = await queuedMusicBrainzFetch(
-    `https://musicbrainz.org/ws/2/release/?artist=${encodeURIComponent(artistId)}&status=official&limit=1&fmt=json`
-  );
-  const published = (data["release-count"] || 0) > 0 || (data.releases || []).length > 0;
-  publishedArtists.set(artistId, published);
-  return published;
-}
-
-async function findMusicBrainzArtist(name) {
-  const normalized = normalizeArtist(name);
-  if (validatedArtists.has(normalized)) return validatedArtists.get(normalized);
-
-  const data = await searchMusicBrainz(`artist:${name}`, 10);
-  const candidates = (data.artists || []).filter(artist =>
-    normalizeArtist(artist.name) === normalized ||
-    (artist.aliases || []).some(alias => normalizeArtist(alias.name) === normalized)
-  );
-
-  for (const candidate of candidates) {
-    if (await hasOfficialRelease(candidate.id)) {
-      const result = { name: candidate.name, id: candidate.id };
-      validatedArtists.set(normalized, result);
-      validatedArtists.set(normalizeArtist(candidate.name), result);
-      return result;
-    }
-  }
-
-  validatedArtists.set(normalized, null);
-  return null;
-}
-
-async function validateArtist(name) {
-  const known = localArtist(name);
-  if (known) return { name: known, source: "local" };
-  const match = await findMusicBrainzArtist(name);
-  return match ? { ...match, source: "musicbrainz" } : null;
-}
-
-async function loadComputerPool(letter) {
-  if (computerPools.has(letter)) return computerPools.get(letter);
-  if (poolLoads.has(letter)) return poolLoads.get(letter);
-
-  const load = (async () => {
-    const data = await searchMusicBrainz(`artist:${letter}*`, 12);
-    const candidates = (data.artists || []).filter(artist =>
-      artist.name && firstGameplayLetter(artist.name) === letter
-    );
-
-    const published = [];
-    for (const artist of candidates) {
-      if (await hasOfficialRelease(artist.id)) {
-        published.push(artist.name);
-        break;
+  const load = fetch(`data/artists/${key}.txt`)
+    .then(response => {
+      if (!response.ok) throw new Error(`Validation data HTTP ${response.status}`);
+      return response.text();
+    })
+    .then(text => {
+      const bucket = new Map();
+      for (const name of text.split(/\r?\n/)) {
+        if (name) bucket.set(normalizeArtist(name), name);
       }
-    }
+      validationBuckets.set(key, bucket);
+      validationLoads.delete(key);
+      return bucket;
+    })
+    .catch(error => {
+      validationLoads.delete(key);
+      throw error;
+    });
 
-    computerPools.set(letter, published);
-    poolLoads.delete(letter);
-    return published;
-  })().catch(error => {
-    poolLoads.delete(letter);
-    throw error;
-  });
-
-  poolLoads.set(letter, load);
+  validationLoads.set(key, load);
   return load;
 }
 
-function prefetchLetter(letter) {
-  if (!letter || availableLocalArtists(letter).length || computerPools.has(letter) || poolLoads.has(letter)) return;
-  loadComputerPool(letter).catch(() => {});
+async function validateArtist(name) {
+  const letter = firstGameplayLetter(name);
+  if (!/^[A-Z]$/.test(letter)) return null;
+  const bucket = await loadValidationBucket(letter);
+  const canonical = bucket.get(normalizeArtist(name));
+  return canonical ? { name: canonical, source: "local-db" } : null;
+}
+
+function prefetchValidation(letter) {
+  if (!letter || !/^[A-Z]$/.test(letter)) return;
+  loadValidationBucket(letter).catch(() => {});
 }
 
 async function computerChoices(letter) {
-  const local = availableLocalArtists(letter);
-  if (local.length) return local;
-
-  const remote = computerPools.has(letter)
-    ? computerPools.get(letter)
-    : await loadComputerPool(letter);
-
-  return remote.filter(name => !artistWasUsed(name));
+  const vocabulary = await loadComputerArtists();
+  return vocabulary.filter(artist =>
+    firstGameplayLetter(artist) === letter && !artistWasUsed(artist)
+  );
 }
 
 async function chooseComputerArtist(letter = null, alternateLetter = null) {
+  const vocabulary = await loadComputerArtists();
+
   if (!letter) {
-    const choices = artists.filter(artist => !artistWasUsed(artist));
+    const choices = vocabulary.filter(artist => !artistWasUsed(artist));
     return choices.length
       ? { artist: choices[Math.floor(Math.random() * choices.length)], usedEscape: false }
       : null;
   }
 
-  let choices = [];
-  try {
-    choices = await computerChoices(letter);
-  } catch (error) {
-    choices = availableLocalArtists(letter);
-  }
-
+  const choices = await computerChoices(letter);
   if (choices.length) {
     return { artist: choices[Math.floor(Math.random() * choices.length)], usedEscape: false };
   }
 
   if (alternateLetter) {
-    let escapeChoices = [];
-    try {
-      escapeChoices = await computerChoices(alternateLetter);
-    } catch (error) {
-      escapeChoices = availableLocalArtists(alternateLetter);
-    }
-
+    const escapeChoices = await computerChoices(alternateLetter);
     if (escapeChoices.length) {
       return { artist: escapeChoices[Math.floor(Math.random() * escapeChoices.length)], usedEscape: true };
     }
@@ -271,8 +197,8 @@ async function computerTurn(letter = null, alternateLetter = null) {
   artistInput.value = "";
   artistInput.focus();
 
-  prefetchLetter(requiredLetter);
-  if (escapeLetter) prefetchLetter(escapeLetter);
+  prefetchValidation(requiredLetter);
+  if (escapeLetter) prefetchValidation(escapeLetter);
 }
 
 function endGame(winner) {
@@ -328,7 +254,7 @@ async function handlePlayerTurn(event) {
   }
 
   artistInput.disabled = true;
-  messageEl.textContent = localArtist(entry) ? "" : "Checking artist + release…";
+  messageEl.textContent = "Checking artist…";
 
   let validation;
   try {
@@ -336,13 +262,13 @@ async function handlePlayerTurn(event) {
   } catch (error) {
     artistInput.disabled = false;
     artistInput.focus();
-    messageEl.textContent = "MusicBrainz is busy. Try that artist again.";
+    messageEl.textContent = "Couldn't load the local artist database.";
     return;
   }
 
   if (!validation) {
     artistInput.disabled = false;
-    messageEl.textContent = "I couldn't verify an official release for that artist.";
+    messageEl.textContent = "I couldn't verify a published artist by that name.";
     artistInput.focus();
     return;
   }
@@ -376,6 +302,8 @@ async function handlePlayerTurn(event) {
     messageEl.textContent = "S ESCAPE · −2";
   }
 }
+
+loadComputerArtists();
 
 startButton.addEventListener("click", startGame);
 artistForm.addEventListener("submit", handlePlayerTurn);
