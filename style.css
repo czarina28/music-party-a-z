@@ -20,7 +20,7 @@ button:hover { opacity: 0.8; }
 .score-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 24px; }
 .score { font-size: 26px; font-weight: bold; }
 .computer-turn { margin-bottom: 30px; }
-.artist-name { font-size: 38px; font-weight: bold; margin-top: 5px; }
+.artist-name { font-size: 38px; font-weight: bold; margin-top: 5px; overflow-wrap: anywhere; }
 .letter-box { border-top: 1px solid #444; border-bottom: 1px solid #444; padding: 22px 0; margin-bottom: 28px; }
 .required-letter { font-size: 72px; font-weight: bold; line-height: 1; margin-top: 5px; }
 form { display: flex; gap: 10px; }
@@ -34,7 +34,7 @@ input:focus { outline: 1px solid #f4f0e8; }
 .message { min-height: 30px; padding-top: 12px; font-size: 15px; opacity: 0.75; }
 .used-section { margin-top: 38px; }
 .used-artists { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.used-artists span { border: 1px solid #444; padding: 6px 9px; font-size: 12px; font-weight: bold; opacity: 0.85; }
+.used-artists span { border: 1px solid #444; padding: 6px 9px; font-size: 12px; font-weight: bold; opacity: 0.85; overflow-wrap: anywhere; }
 .used-artists span.player { color: #78cbd1; border-color: #42777b; }
 .used-artists span.computer { color: #d8ad55; border-color: #806b3e; }
 .s-escape { display: inline-block; margin-top: 10px; padding: 5px 8px; border: 1px solid #806b3e; color: #d8ad55; font-size: 11px; font-weight: bold; letter-spacing: 0.1em; }
@@ -42,3 +42,19 @@ input:focus { outline: 1px solid #f4f0e8; }
 .game-actions { display: flex; gap: 10px; margin-top: 8px; }
 .secondary-button { padding: 8px 12px; border: 1px solid #444; background: transparent; color: #999; font-size: 10px; letter-spacing: 0.1em; }
 .secondary-button:hover { color: #f4f0e8; border-color: #777; background: transparent; }
+
+@media (max-width: 560px) {
+  body { align-items: flex-start; padding: 28px 0; }
+  .game { width: min(92vw, 680px); }
+  header { margin-bottom: 30px; }
+  h1 { font-size: clamp(40px, 14vw, 58px); }
+  .artist-name { font-size: 30px; }
+  .required-letter { font-size: 60px; }
+  form { flex-wrap: wrap; }
+  input { flex: 1 1 100%; width: 100%; }
+  .voice-language { flex: 0 0 64px; min-height: 44px; }
+  .voice-button { flex: 1 1 auto; min-height: 44px; }
+  form button[type="submit"] { flex: 1 1 auto; min-height: 44px; }
+  .start-actions, .game-actions { flex-wrap: wrap; }
+  .full-rules { padding-left: 20px; }
+}
