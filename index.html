@@ -19,41 +19,35 @@
         <p>Name a published musical artist whose name begins with the last letter of the previous artist. No repeats. Ignore <strong>The</strong> at the beginning of a name.</p>
         <p><strong>SCORING</strong> · Every valid artist is +1 point. If an artist ends in <strong>S</strong>, you may escape to the letter before the S for −2 points. Pass for −3.</p>
       </div>
-      <button id="start-button">START GAME</button>
+      <div class="start-actions">
+        <button id="start-button">START GAME</button>
+        <button id="rules-button" class="secondary-button">FULL RULES</button>
+      </div>
+    </section>
+
+    <section id="rules-screen" class="hidden">
+      <div class="label">RULES OF THE GAME</div>
+      <ol class="full-rules">
+        <li>Name a musical artist or act.</li>
+        <li>Your artist must begin with the final letter of the previous artist.</li>
+        <li>Ignore <strong>The</strong> at the beginning of an artist name. <em>The Supremes</em> plays as S.</li>
+        <li>An artist or act may only be used once in a game.</li>
+        <li>Artists must be <strong>published</strong> — they must have an officially released recording.</li>
+        <li>Every valid artist you play earns <strong>1 point</strong>.</li>
+        <li><strong>S Escape:</strong> if the previous artist ends in S, you may use the letter immediately before the S instead. S Escape costs <strong>2 points</strong>.</li>
+        <li><strong>Pass:</strong> if you're stuck, you may pass for <strong>−3 points</strong>. The computer plays from the current letter and the game continues.</li>
+      </ol>
+      <button id="rules-back-button" class="secondary-button">BACK</button>
     </section>
 
     <section id="game-screen" class="hidden">
-      <div class="score-row">
-        <div class="label">SCORE</div>
-        <div id="score" class="score">0</div>
-      </div>
-
-      <div class="computer-turn">
-        <div class="label">COMPUTER</div>
-        <div id="computer-artist" class="artist-name"></div>
-      </div>
-
-      <div class="letter-box">
-        <div class="label">YOUR LETTER</div>
-        <div id="required-letter" class="required-letter"></div>
-        <div id="s-escape" class="s-escape hidden"></div>
-      </div>
-
-      <form id="artist-form">
-        <input id="artist-input" type="text" autocomplete="off" placeholder="Name an artist...">
-        <button type="submit">PLAY</button>
-      </form>
-
+      <div class="score-row"><div class="label">SCORE</div><div id="score" class="score">0</div></div>
+      <div class="computer-turn"><div class="label">COMPUTER</div><div id="computer-artist" class="artist-name"></div></div>
+      <div class="letter-box"><div class="label">YOUR LETTER</div><div id="required-letter" class="required-letter"></div><div id="s-escape" class="s-escape hidden"></div></div>
+      <form id="artist-form"><input id="artist-input" type="text" autocomplete="off" placeholder="Name an artist..."><button type="submit">PLAY</button></form>
       <div id="message" class="message"></div>
-      <div class="game-actions">
-        <button id="pass-button" class="secondary-button">PASS −3</button>
-        <button id="new-game-button" class="secondary-button">NEW GAME</button>
-      </div>
-
-      <div class="used-section">
-        <div class="label">USED ARTISTS</div>
-        <div id="used-artists" class="used-artists"></div>
-      </div>
+      <div class="game-actions"><button id="pass-button" class="secondary-button">PASS −3</button><button id="new-game-button" class="secondary-button">NEW GAME</button></div>
+      <div class="used-section"><div class="label">USED ARTISTS</div><div id="used-artists" class="used-artists"></div></div>
     </section>
   </main>
   <script src="app.js"></script>
