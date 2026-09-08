@@ -59,10 +59,11 @@ def main() -> None:
     published_artist_ids: set[str] = set()
     official_release_count = 0
 
-    # MusicBrainz release columns include artist_credit at index 3 and
-    # status at index 4. Status 1 is Official in the MusicBrainz schema.
+    # MusicBrainz release dump columns begin:
+    # id, gid, name, artist_credit, release_group, status, ...
+    # Status 1 is Official.
     for row in rows(release_file):
-        if len(row) < 5 or row[4] != "1":
+        if len(row) < 6 or row[5] != "1":
             continue
         official_release_count += 1
         published_artist_ids.update(credit_to_artists.get(row[3], ()))
