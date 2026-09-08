@@ -31,6 +31,11 @@ let requiredLetter = "";
 let escapeLetter = null;
 const validatedArtists = new Map();
 const publishedArtists = new Map();
+const computerPools = new Map();
+
+let lastMusicBrainzRequest = 0;
+let musicBrainzQueue = Promise.resolve();
+const MUSICBRAINZ_DELAY = 1100;
 
 function normalizeArtist(name) {
   return name.trim().toLowerCase();
@@ -56,9 +61,7 @@ function artistWasUsed(name) {
 }
 
 function availableLocalArtists(letter) {
-  return artists.filter(artist =>
-    artist.charAt(0).toUpperCase() === letter && !artistWasUsed(artist)
-  );
+  return artists.filter(artist => artist.charAt(0).toUpperCase() === letter && !artistWasUsed(artist));
 }
 
 function addUsedArtist(artist, player) {
@@ -72,14 +75,35 @@ function renderUsedArtists() {
     .join("");
 }
 
-async function fetchJson(url) {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`MusicBrainz returned HTTP ${response.status}`);
-  return response.json();
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function queuedMusicBrainzFetch(url) {
+  const task = async () => {
+    const wait = Math.max(0, MUSICBRAINZ_DELAY - (Date.now() - lastMusicBrainzRequest));
+    if (wait) await sleep(wait);
+
+    let response = await fetch(url);
+    lastMusicBrainzRequest = Date.now();
+
+    if (response.status === 429 || response.status >= 500) {
+      await sleep(1500);
+      response = await fetch(url);
+      lastMusicBrainzRequest = Date.now();
+    }
+
+    if (!response.ok) throw new Error(`MusicBrainz returned HTTP ${response.status}`);
+    return response.json();
+  };
+
+  const result = musicBrainzQueue.then(task, task);
+  musicBrainzQueue = result.catch(() => {});
+  return result;
 }
 
 async function searchMusicBrainz(query, limit = 25) {
-  return fetchJson(
+  return queuedMusicBrainzFetch(
     `https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(query)}&fmt=json&limit=${limit}`
   );
 }
@@ -87,8 +111,9 @@ async function searchMusicBrainz(query, limit = 25) {
 async function hasOfficialRelease(artistId) {
   if (publishedArtists.has(artistId)) return publishedArtists.get(artistId);
 
-  const url = `https://musicbrainz.org/ws/2/release/?artist=${encodeURIComponent(artistId)}&status=official&limit=1&fmt=json`;
-  const data = await fetchJson(url);
+  const data = await queuedMusicBrainzFetch(
+    `https://musicbrainz.org/ws/2/release/?artist=${encodeURIComponent(artistId)}&status=official&limit=1&fmt=json`
+  );
   const published = (data["release-count"] || 0) > 0 || (data.releases || []).length > 0;
   publishedArtists.set(artistId, published);
   return published;
@@ -120,26 +145,29 @@ async function findMusicBrainzArtist(name) {
 async function validateArtist(name) {
   const known = localArtist(name);
   if (known) return { name: known, source: "local" };
-
   const match = await findMusicBrainzArtist(name);
   return match ? { ...match, source: "musicbrainz" } : null;
 }
 
 async function musicBrainzArtistsForLetter(letter) {
+  if (computerPools.has(letter)) {
+    return computerPools.get(letter).filter(name => !artistWasUsed(name));
+  }
+
   const data = await searchMusicBrainz(`artist:${letter}*`, 25);
   const candidates = (data.artists || []).filter(artist =>
-    artist.name &&
-    artist.name.charAt(0).toUpperCase() === letter &&
-    !artistWasUsed(artist.name)
+    artist.name && artist.name.charAt(0).toUpperCase() === letter && !artistWasUsed(artist.name)
   );
 
   const published = [];
   for (const artist of candidates) {
     if (await hasOfficialRelease(artist.id)) {
       published.push(artist.name);
-      if (published.length >= 8) break;
+      if (published.length >= 3) break;
     }
   }
+
+  computerPools.set(letter, published);
   return published;
 }
 
@@ -153,11 +181,12 @@ async function chooseComputerArtist(letter = null, alternateLetter = null) {
 
   let choices = availableLocalArtists(letter);
 
-  try {
-    const remoteChoices = await musicBrainzArtistsForLetter(letter);
-    choices = [...new Set([...choices, ...remoteChoices])];
-  } catch (error) {
-    // If MusicBrainz is temporarily unavailable, the local pool still works.
+  if (choices.length === 0) {
+    try {
+      choices = await musicBrainzArtistsForLetter(letter);
+    } catch (error) {
+      choices = [];
+    }
   }
 
   if (choices.length) {
@@ -166,11 +195,13 @@ async function chooseComputerArtist(letter = null, alternateLetter = null) {
 
   if (alternateLetter) {
     let escapeChoices = availableLocalArtists(alternateLetter);
-    try {
-      const remoteEscapeChoices = await musicBrainzArtistsForLetter(alternateLetter);
-      escapeChoices = [...new Set([...escapeChoices, ...remoteEscapeChoices])];
-    } catch (error) {
-      // Fall back to the local escape pool.
+
+    if (escapeChoices.length === 0) {
+      try {
+        escapeChoices = await musicBrainzArtistsForLetter(alternateLetter);
+      } catch (error) {
+        escapeChoices = [];
+      }
     }
 
     if (escapeChoices.length) {
@@ -275,7 +306,7 @@ async function handlePlayerTurn(event) {
   } catch (error) {
     artistInput.disabled = false;
     artistInput.focus();
-    messageEl.textContent = "Couldn't check MusicBrainz. Try again.";
+    messageEl.textContent = "MusicBrainz is busy. Try that artist again.";
     return;
   }
 
