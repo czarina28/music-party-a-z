@@ -7,7 +7,11 @@ h1 { font-size: clamp(42px, 8vw, 72px); line-height: 0.95; margin: 8px 0 0; lett
 h1 span { opacity: 0.45; }
 .rules { max-width: 540px; margin-bottom: 28px; }
 .rules p { font-size: 17px; line-height: 1.5; opacity: 0.78; margin: 10px 0; }
-.rules strong { color: #f4f0e8; }
+.rules strong, .full-rules strong { color: #f4f0e8; }
+.start-actions { display: flex; gap: 10px; align-items: center; }
+.full-rules { max-width: 600px; margin: 18px 0 28px; padding-left: 24px; }
+.full-rules li { padding-left: 8px; margin-bottom: 12px; font-size: 16px; line-height: 1.45; color: #c9c5bd; }
+.full-rules em { color: #f4f0e8; }
 button { border: 0; background: #f4f0e8; color: #111; padding: 14px 24px; font-weight: bold; letter-spacing: 0.08em; cursor: pointer; }
 button:hover { opacity: 0.8; }
 .hidden { display: none; }
