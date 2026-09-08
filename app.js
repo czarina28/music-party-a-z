@@ -30,6 +30,7 @@ let usedArtists = [];
 let requiredLetter = "";
 let escapeLetter = null;
 const validatedArtists = new Map();
+const publishedArtists = new Map();
 
 function normalizeArtist(name) {
   return name.trim().toLowerCase();
@@ -71,11 +72,26 @@ function renderUsedArtists() {
     .join("");
 }
 
-async function searchMusicBrainz(query, limit = 25) {
-  const url = `https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(query)}&fmt=json&limit=${limit}`;
+async function fetchJson(url) {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`MusicBrainz returned HTTP ${response.status}`);
   return response.json();
+}
+
+async function searchMusicBrainz(query, limit = 25) {
+  return fetchJson(
+    `https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(query)}&fmt=json&limit=${limit}`
+  );
+}
+
+async function hasOfficialRelease(artistId) {
+  if (publishedArtists.has(artistId)) return publishedArtists.get(artistId);
+
+  const url = `https://musicbrainz.org/ws/2/release/?artist=${encodeURIComponent(artistId)}&status=official&limit=1&fmt=json`;
+  const data = await fetchJson(url);
+  const published = (data["release-count"] || 0) > 0 || (data.releases || []).length > 0;
+  publishedArtists.set(artistId, published);
+  return published;
 }
 
 async function findMusicBrainzArtist(name) {
@@ -83,20 +99,22 @@ async function findMusicBrainzArtist(name) {
   if (validatedArtists.has(normalized)) return validatedArtists.get(normalized);
 
   const data = await searchMusicBrainz(`artist:${name}`, 10);
-  const match = (data.artists || []).find(artist =>
+  const candidates = (data.artists || []).filter(artist =>
     normalizeArtist(artist.name) === normalized ||
     (artist.aliases || []).some(alias => normalizeArtist(alias.name) === normalized)
   );
 
-  if (!match) {
-    validatedArtists.set(normalized, null);
-    return null;
+  for (const candidate of candidates) {
+    if (await hasOfficialRelease(candidate.id)) {
+      const result = { name: candidate.name, id: candidate.id };
+      validatedArtists.set(normalized, result);
+      validatedArtists.set(normalizeArtist(candidate.name), result);
+      return result;
+    }
   }
 
-  const result = { name: match.name, id: match.id };
-  validatedArtists.set(normalized, result);
-  validatedArtists.set(normalizeArtist(match.name), result);
-  return result;
+  validatedArtists.set(normalized, null);
+  return null;
 }
 
 async function validateArtist(name) {
@@ -109,13 +127,20 @@ async function validateArtist(name) {
 
 async function musicBrainzArtistsForLetter(letter) {
   const data = await searchMusicBrainz(`artist:${letter}*`, 25);
-  return (data.artists || [])
-    .map(artist => artist.name)
-    .filter(name =>
-      name &&
-      name.charAt(0).toUpperCase() === letter &&
-      !artistWasUsed(name)
-    );
+  const candidates = (data.artists || []).filter(artist =>
+    artist.name &&
+    artist.name.charAt(0).toUpperCase() === letter &&
+    !artistWasUsed(artist.name)
+  );
+
+  const published = [];
+  for (const artist of candidates) {
+    if (await hasOfficialRelease(artist.id)) {
+      published.push(artist.name);
+      if (published.length >= 8) break;
+    }
+  }
+  return published;
 }
 
 async function chooseComputerArtist(letter = null, alternateLetter = null) {
@@ -136,15 +161,11 @@ async function chooseComputerArtist(letter = null, alternateLetter = null) {
   }
 
   if (choices.length) {
-    return {
-      artist: choices[Math.floor(Math.random() * choices.length)],
-      usedEscape: false
-    };
+    return { artist: choices[Math.floor(Math.random() * choices.length)], usedEscape: false };
   }
 
   if (alternateLetter) {
     let escapeChoices = availableLocalArtists(alternateLetter);
-
     try {
       const remoteEscapeChoices = await musicBrainzArtistsForLetter(alternateLetter);
       escapeChoices = [...new Set([...escapeChoices, ...remoteEscapeChoices])];
@@ -153,10 +174,7 @@ async function chooseComputerArtist(letter = null, alternateLetter = null) {
     }
 
     if (escapeChoices.length) {
-      return {
-        artist: escapeChoices[Math.floor(Math.random() * escapeChoices.length)],
-        usedEscape: true
-      };
+      return { artist: escapeChoices[Math.floor(Math.random() * escapeChoices.length)], usedEscape: true };
     }
   }
 
@@ -166,7 +184,6 @@ async function chooseComputerArtist(letter = null, alternateLetter = null) {
 async function computerTurn(letter = null, alternateLetter = null) {
   artistInput.disabled = true;
   messageEl.textContent = letter ? "Computer is thinking…" : "";
-
   const choice = await chooseComputerArtist(letter, alternateLetter);
 
   if (!choice) {
@@ -182,7 +199,6 @@ async function computerTurn(letter = null, alternateLetter = null) {
   requiredLetter = letters.normal;
   escapeLetter = letters.escape;
   requiredLetterEl.textContent = requiredLetter;
-
   messageEl.textContent = choice.usedEscape ? "COMPUTER S ESCAPE · −2" : "";
 
   if (escapeLetter) {
@@ -251,7 +267,7 @@ async function handlePlayerTurn(event) {
   }
 
   artistInput.disabled = true;
-  messageEl.textContent = localArtist(entry) ? "" : "Checking artist…";
+  messageEl.textContent = localArtist(entry) ? "" : "Checking artist + release…";
 
   let validation;
   try {
@@ -265,7 +281,7 @@ async function handlePlayerTurn(event) {
 
   if (!validation) {
     artistInput.disabled = false;
-    messageEl.textContent = "I couldn't verify that artist.";
+    messageEl.textContent = "I couldn't verify an official release for that artist.";
     artistInput.focus();
     return;
   }
