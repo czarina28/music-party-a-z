@@ -41,11 +41,22 @@ function normalizeArtist(name) {
   return name.trim().toLowerCase();
 }
 
+function gameplayLetter(character) {
+  return character
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase();
+}
+
+function firstGameplayLetter(name) {
+  return gameplayLetter(name.trim().charAt(0));
+}
+
 function getLetters(name) {
   const cleaned = name.trim();
-  const lastLetter = cleaned.charAt(cleaned.length - 1).toUpperCase();
+  const lastLetter = gameplayLetter(cleaned.charAt(cleaned.length - 1));
   const sEscapeLetter = lastLetter === "S" && cleaned.length > 1
-    ? cleaned.charAt(cleaned.length - 2).toUpperCase()
+    ? gameplayLetter(cleaned.charAt(cleaned.length - 2))
     : null;
   return { normal: lastLetter, escape: sEscapeLetter };
 }
@@ -61,7 +72,7 @@ function artistWasUsed(name) {
 }
 
 function availableLocalArtists(letter) {
-  return artists.filter(artist => artist.charAt(0).toUpperCase() === letter && !artistWasUsed(artist));
+  return artists.filter(artist => firstGameplayLetter(artist) === letter && !artistWasUsed(artist));
 }
 
 function addUsedArtist(artist, player) {
@@ -156,7 +167,7 @@ async function musicBrainzArtistsForLetter(letter) {
 
   const data = await searchMusicBrainz(`artist:${letter}*`, 25);
   const candidates = (data.artists || []).filter(artist =>
-    artist.name && artist.name.charAt(0).toUpperCase() === letter && !artistWasUsed(artist.name)
+    artist.name && firstGameplayLetter(artist.name) === letter && !artistWasUsed(artist.name)
   );
 
   const published = [];
@@ -286,7 +297,7 @@ async function handlePlayerTurn(event) {
   const entry = artistInput.value.trim();
   if (!entry || artistInput.disabled) return;
 
-  const entryFirstLetter = entry.charAt(0).toUpperCase();
+  const entryFirstLetter = firstGameplayLetter(entry);
   const couldUseNormalLetter = entryFirstLetter === requiredLetter;
   const couldUseEscapeLetter = escapeLetter && entryFirstLetter === escapeLetter;
 
@@ -325,7 +336,7 @@ async function handlePlayerTurn(event) {
     return;
   }
 
-  const firstLetter = validArtist.charAt(0).toUpperCase();
+  const firstLetter = firstGameplayLetter(validArtist);
   const usedNormalLetter = firstLetter === requiredLetter;
   const usedEscapeLetter = escapeLetter && firstLetter === escapeLetter;
 
