@@ -14,6 +14,10 @@
       <h1>Music Party <span>A–Z</span></h1>
     </header>
 
+    <div id="musicbrainz-test" style="margin: 0 0 1rem; font-size: 0.85rem; opacity: 0.8;">
+      MusicBrainz test: checking CAN…
+    </div>
+
     <section id="start-screen">
       <p class="intro">
         Name an artist. Use the last letter to name the next one.
@@ -31,11 +35,10 @@
       </div>
 
       <div class="letter-box">
-  <div class="label">YOUR LETTER</div>
-  <div id="required-letter" class="required-letter"></div>
-  <div id="s-escape" class="s-escape hidden"></div>
-</div>
-
+        <div class="label">YOUR LETTER</div>
+        <div id="required-letter" class="required-letter"></div>
+        <div id="s-escape" class="s-escape hidden"></div>
+      </div>
 
       <form id="artist-form">
         <input
@@ -49,9 +52,9 @@
 
       <div id="message" class="message"></div>
       <div class="game-actions">
-  <button id="stuck-button" class="secondary-button">I'M STUCK</button>
-  <button id="new-game-button" class="secondary-button">NEW GAME</button>
-</div>
+        <button id="stuck-button" class="secondary-button">I'M STUCK</button>
+        <button id="new-game-button" class="secondary-button">NEW GAME</button>
+      </div>
 
       <div class="used-section">
         <div class="label">USED ARTISTS</div>
@@ -62,5 +65,29 @@
   </main>
 
   <script src="app.js"></script>
+  <script>
+    const musicBrainzTestEl = document.getElementById("musicbrainz-test");
+
+    fetch("https://musicbrainz.org/ws/2/artist/?query=artist%3ACAN&fmt=json&limit=5")
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        const foundCan = data.artists?.some(
+          artist => artist.name.toLowerCase() === "can"
+        );
+
+        musicBrainzTestEl.textContent = foundCan
+          ? "MusicBrainz test: CAN found ✓"
+          : "MusicBrainz test: connected, but CAN not found";
+      })
+      .catch(error => {
+        musicBrainzTestEl.textContent =
+          `MusicBrainz test failed: ${error.message}`;
+      });
+  </script>
 </body>
 </html>
