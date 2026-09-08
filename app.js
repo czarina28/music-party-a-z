@@ -55,13 +55,17 @@ function gameplayLetters(name) {
   return name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().match(/[A-Z]/g) || [];
 }
 
+function gameplayName(name) {
+  return name.trim().replace(/^the\s+/i, "");
+}
+
 function firstGameplayLetter(name) {
-  const letters = gameplayLetters(name.trim());
+  const letters = gameplayLetters(gameplayName(name));
   return letters[0] || "";
 }
 
 function getLetters(name) {
-  const letters = gameplayLetters(name.trim());
+  const letters = gameplayLetters(gameplayName(name));
   if (!letters.length) return { normal: "", escape: null };
   const lastLetter = letters[letters.length - 1];
   return { normal: lastLetter, escape: lastLetter === "S" && letters.length > 1 ? letters[letters.length - 2] : null };
@@ -108,24 +112,25 @@ async function loadValidationBucket(letter) {
 }
 
 async function validateArtist(name) {
-  const normalized = normalizeArtist(name);
   const typedWithoutThe = name.replace(/^the\s+/i, "").trim();
   const candidateNames = [name];
   if (/^the\s+/i.test(name)) candidateNames.push(typedWithoutThe);
   else candidateNames.push(`The ${name}`);
 
-  // Search the shard implied by each candidate's actual first letter. This lets
-  // "Supremes" find "The Supremes" in T, and also lets "The Supremes" fall
-  // back to S if a database happens to store the act without the article.
-  const letters = [...new Set(candidateNames.map(firstGameplayLetter).filter(letter => /^[A-Z]$/.test(letter)))];
-  for (const letter of letters) {
+  // Validation shards are based on canonical database names, so an artist whose
+  // canonical name starts with "The" still lives in T even though gameplay ignores it.
+  const shardLetters = [...new Set([
+    firstGameplayLetter(name),
+    firstGameplayLetter(typedWithoutThe),
+    "T"
+  ].filter(letter => /^[A-Z]$/.test(letter)))];
+
+  for (const letter of shardLetters) {
     const bucket = await loadValidationBucket(letter);
     for (const candidate of candidateNames) {
       const canonical = bucket.get(normalizeArtist(candidate));
       if (canonical) return { name: canonical, source: "local-db" };
     }
-    // Also compare the article-less normalized form against canonical names in
-    // the T shard without changing how those canonical names play in the game.
     if (letter === "T") {
       for (const canonical of bucket.values()) {
         if (/^the\s+/i.test(canonical) && normalizeArtist(canonical.replace(/^the\s+/i, "")) === normalizeArtist(typedWithoutThe)) {
