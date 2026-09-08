@@ -1,52 +1,15 @@
 const artists = [
-  "ABBA",
-  "Aerosmith",
-  "Aretha Franklin",
-  "Bauhaus",
-  "Beastie Boys",
-  "Blondie",
-  "Bob Dylan",
-  "Bob Mould",
-  "Carole King",
-  "David Bowie",
-  "Depeche Mode",
-  "Elvis Costello",
-  "Fleetwood Mac",
-  "George Harrison",
-  "Iggy Pop",
-  "Jefferson Airplane",
-  "Jimi Hendrix",
-  "Kate Bush",
-  "Led Zeppelin",
-  "Lou Reed",
-  "Madonna",
-  "Marvin Gaye",
-  "Neil Young",
-  "Nico",
-  "Otis Redding",
-  "Patti Smith",
-  "Paul Simon",
-  "Prince",
-  "Radiohead",
-  "Roxy Music",
-  "Sparks",
-  "Stevie Wonder",
-  "Talking Heads",
-  "The Beatles",
-  "The Cars",
-  "The Clash",
-  "The Cure",
-  "The Doors",
-  "The Hollies",
-  "The Kinks",
-  "The Rolling Stones",
-  "The Shins",
-  "The Strokes",
-  "The Velvet Underground",
-  "The Who",
-  "Violent Femmes",
-  "XTC",
-  "Yardbirds"
+  "ABBA", "Aerosmith", "Aretha Franklin", "Bauhaus", "Beastie Boys",
+  "Blondie", "Bob Dylan", "Bob Mould", "Carole King", "David Bowie",
+  "Depeche Mode", "Elvis Costello", "Fleetwood Mac", "George Harrison",
+  "Iggy Pop", "Jefferson Airplane", "Jimi Hendrix", "Kate Bush",
+  "Led Zeppelin", "Lou Reed", "Madonna", "Marvin Gaye", "Neil Young",
+  "Nico", "Otis Redding", "Patti Smith", "Paul Simon", "Prince",
+  "Radiohead", "Roxy Music", "Sparks", "Stevie Wonder", "Talking Heads",
+  "The Beatles", "The Cars", "The Clash", "The Cure", "The Doors",
+  "The Hollies", "The Kinks", "The Rolling Stones", "The Shins",
+  "The Strokes", "The Velvet Underground", "The Who", "Violent Femmes",
+  "XTC", "Yardbirds"
 ];
 
 const startButton = document.getElementById("start-button");
@@ -75,12 +38,9 @@ function normalizeArtist(name) {
 function getLetters(name) {
   const cleaned = name.trim();
   const lastLetter = cleaned.charAt(cleaned.length - 1).toUpperCase();
-  let sEscapeLetter = null;
-
-  if (lastLetter === "S" && cleaned.length > 1) {
-    sEscapeLetter = cleaned.charAt(cleaned.length - 2).toUpperCase();
-  }
-
+  const sEscapeLetter = lastLetter === "S" && cleaned.length > 1
+    ? cleaned.charAt(cleaned.length - 2).toUpperCase()
+    : null;
   return { normal: lastLetter, escape: sEscapeLetter };
 }
 
@@ -94,7 +54,7 @@ function artistWasUsed(name) {
   return usedArtists.some(artist => normalizeArtist(artist.name) === normalized);
 }
 
-function availableArtists(letter) {
+function availableLocalArtists(letter) {
   return artists.filter(artist =>
     artist.charAt(0).toUpperCase() === letter && !artistWasUsed(artist)
   );
@@ -107,52 +67,33 @@ function addUsedArtist(artist, player) {
 
 function renderUsedArtists() {
   usedArtistsEl.innerHTML = usedArtists
-    .map(artist => `
-      <span class="${artist.player}">
-        ${artist.name}
-      </span>
-    `)
+    .map(artist => `<span class="${artist.player}">${artist.name}</span>`)
     .join("");
+}
+
+async function searchMusicBrainz(query, limit = 25) {
+  const url = `https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(query)}&fmt=json&limit=${limit}`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`MusicBrainz returned HTTP ${response.status}`);
+  return response.json();
 }
 
 async function findMusicBrainzArtist(name) {
   const normalized = normalizeArtist(name);
+  if (validatedArtists.has(normalized)) return validatedArtists.get(normalized);
 
-  if (validatedArtists.has(normalized)) {
-    return validatedArtists.get(normalized);
-  }
-
-  const query = encodeURIComponent(`artist:${name}`);
-  const url = `https://musicbrainz.org/ws/2/artist/?query=${query}&fmt=json&limit=10`;
-  const response = await fetch(url);
-
-  if (!response.ok) {
-    throw new Error(`MusicBrainz returned HTTP ${response.status}`);
-  }
-
-  const data = await response.json();
-  const candidates = data.artists || [];
-
-  const match = candidates.find(artist => {
-    if (normalizeArtist(artist.name) === normalized) {
-      return true;
-    }
-
-    return (artist.aliases || []).some(
-      alias => normalizeArtist(alias.name) === normalized
-    );
-  });
+  const data = await searchMusicBrainz(`artist:${name}`, 10);
+  const match = (data.artists || []).find(artist =>
+    normalizeArtist(artist.name) === normalized ||
+    (artist.aliases || []).some(alias => normalizeArtist(alias.name) === normalized)
+  );
 
   if (!match) {
     validatedArtists.set(normalized, null);
     return null;
   }
 
-  const result = {
-    name: match.name,
-    id: match.id
-  };
-
+  const result = { name: match.name, id: match.id };
   validatedArtists.set(normalized, result);
   validatedArtists.set(normalizeArtist(match.name), result);
   return result;
@@ -160,43 +101,80 @@ async function findMusicBrainzArtist(name) {
 
 async function validateArtist(name) {
   const known = localArtist(name);
-  if (known) {
-    return { name: known, source: "local" };
-  }
+  if (known) return { name: known, source: "local" };
 
-  const musicBrainzArtist = await findMusicBrainzArtist(name);
-  if (!musicBrainzArtist) {
-    return null;
-  }
-
-  return {
-    name: musicBrainzArtist.name,
-    id: musicBrainzArtist.id,
-    source: "musicbrainz"
-  };
+  const match = await findMusicBrainzArtist(name);
+  return match ? { ...match, source: "musicbrainz" } : null;
 }
 
-function computerTurn(letter = null, alternateLetter = null) {
-  let choices;
-  let usedEscape = false;
+async function musicBrainzArtistsForLetter(letter) {
+  const data = await searchMusicBrainz(`artist:${letter}*`, 25);
+  return (data.artists || [])
+    .map(artist => artist.name)
+    .filter(name =>
+      name &&
+      name.charAt(0).toUpperCase() === letter &&
+      !artistWasUsed(name)
+    );
+}
 
-  if (letter) {
-    choices = availableArtists(letter);
-
-    if (choices.length === 0 && alternateLetter) {
-      choices = availableArtists(alternateLetter);
-      usedEscape = choices.length > 0;
-    }
-  } else {
-    choices = artists.filter(artist => !artistWasUsed(artist));
+async function chooseComputerArtist(letter = null, alternateLetter = null) {
+  if (!letter) {
+    const choices = artists.filter(artist => !artistWasUsed(artist));
+    return choices.length
+      ? { artist: choices[Math.floor(Math.random() * choices.length)], usedEscape: false }
+      : null;
   }
 
-  if (choices.length === 0) {
+  let choices = availableLocalArtists(letter);
+
+  try {
+    const remoteChoices = await musicBrainzArtistsForLetter(letter);
+    choices = [...new Set([...choices, ...remoteChoices])];
+  } catch (error) {
+    // If MusicBrainz is temporarily unavailable, the local pool still works.
+  }
+
+  if (choices.length) {
+    return {
+      artist: choices[Math.floor(Math.random() * choices.length)],
+      usedEscape: false
+    };
+  }
+
+  if (alternateLetter) {
+    let escapeChoices = availableLocalArtists(alternateLetter);
+
+    try {
+      const remoteEscapeChoices = await musicBrainzArtistsForLetter(alternateLetter);
+      escapeChoices = [...new Set([...escapeChoices, ...remoteEscapeChoices])];
+    } catch (error) {
+      // Fall back to the local escape pool.
+    }
+
+    if (escapeChoices.length) {
+      return {
+        artist: escapeChoices[Math.floor(Math.random() * escapeChoices.length)],
+        usedEscape: true
+      };
+    }
+  }
+
+  return null;
+}
+
+async function computerTurn(letter = null, alternateLetter = null) {
+  artistInput.disabled = true;
+  messageEl.textContent = letter ? "Computer is thinking…" : "";
+
+  const choice = await chooseComputerArtist(letter, alternateLetter);
+
+  if (!choice) {
     endGame("player");
     return;
   }
 
-  const artist = choices[Math.floor(Math.random() * choices.length)];
+  const artist = choice.artist;
   computerArtistEl.textContent = artist;
   addUsedArtist(artist, "computer");
 
@@ -205,7 +183,7 @@ function computerTurn(letter = null, alternateLetter = null) {
   escapeLetter = letters.escape;
   requiredLetterEl.textContent = requiredLetter;
 
-  messageEl.textContent = usedEscape ? "COMPUTER S ESCAPE · −2" : "";
+  messageEl.textContent = choice.usedEscape ? "COMPUTER S ESCAPE · −2" : "";
 
   if (escapeLetter) {
     sEscapeEl.textContent = `S ESCAPE → ${escapeLetter} · −2`;
@@ -215,6 +193,7 @@ function computerTurn(letter = null, alternateLetter = null) {
     sEscapeEl.classList.add("hidden");
   }
 
+  artistInput.disabled = false;
   artistInput.value = "";
   artistInput.focus();
 }
@@ -227,7 +206,6 @@ function endGame(winner) {
   sEscapeEl.classList.add("hidden");
 
   const artistCount = usedArtists.length;
-
   if (winner === "computer") {
     computerArtistEl.textContent = "COMPUTER WINS";
     messageEl.textContent = `You're stuck. ${artistCount} artists played.`;
@@ -235,7 +213,6 @@ function endGame(winner) {
     computerArtistEl.textContent = "YOU WIN";
     messageEl.textContent = `The computer is stuck. ${artistCount} artists played.`;
   }
-
   stuckButton.classList.add("hidden");
 }
 
@@ -243,7 +220,7 @@ function startGame() {
   usedArtists = [];
   requiredLetter = "";
   escapeLetter = null;
-  artistInput.disabled = false;
+  artistInput.disabled = true;
   artistInput.value = "";
   artistForm.classList.remove("hidden");
   letterBox.classList.remove("hidden");
@@ -259,9 +236,8 @@ function startGame() {
 
 async function handlePlayerTurn(event) {
   event.preventDefault();
-
   const entry = artistInput.value.trim();
-  if (!entry) return;
+  if (!entry || artistInput.disabled) return;
 
   const entryFirstLetter = entry.charAt(0).toUpperCase();
   const couldUseNormalLetter = entryFirstLetter === requiredLetter;
@@ -278,7 +254,6 @@ async function handlePlayerTurn(event) {
   messageEl.textContent = localArtist(entry) ? "" : "Checking artist…";
 
   let validation;
-
   try {
     validation = await validateArtist(entry);
   } catch (error) {
@@ -288,17 +263,16 @@ async function handlePlayerTurn(event) {
     return;
   }
 
-  artistInput.disabled = false;
-
   if (!validation) {
+    artistInput.disabled = false;
     messageEl.textContent = "I couldn't verify that artist.";
     artistInput.focus();
     return;
   }
 
   const validArtist = validation.name;
-
   if (artistWasUsed(validArtist)) {
+    artistInput.disabled = false;
     messageEl.textContent = `${validArtist} has already been used.`;
     artistInput.focus();
     return;
@@ -309,6 +283,7 @@ async function handlePlayerTurn(event) {
   const usedEscapeLetter = escapeLetter && firstLetter === escapeLetter;
 
   if (!usedNormalLetter && !usedEscapeLetter) {
+    artistInput.disabled = false;
     messageEl.textContent = escapeLetter
       ? `Artist must begin with ${requiredLetter}, or ${escapeLetter} using S Escape.`
       : `Artist must begin with ${requiredLetter}.`;
@@ -317,9 +292,8 @@ async function handlePlayerTurn(event) {
   }
 
   addUsedArtist(validArtist, "player");
-
   const nextLetters = getLetters(validArtist);
-  computerTurn(nextLetters.normal, nextLetters.escape);
+  await computerTurn(nextLetters.normal, nextLetters.escape);
 
   if (usedEscapeLetter && !artistInput.disabled) {
     messageEl.textContent = "S ESCAPE · −2";
@@ -329,6 +303,4 @@ async function handlePlayerTurn(event) {
 startButton.addEventListener("click", startGame);
 artistForm.addEventListener("submit", handlePlayerTurn);
 newGameButton.addEventListener("click", startGame);
-stuckButton.addEventListener("click", () => {
-  endGame("computer");
-});
+stuckButton.addEventListener("click", () => endGame("computer"));
